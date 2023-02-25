@@ -15,7 +15,6 @@ type Message struct {
 }
 
 type Client struct {
-	name     string
 	dialAddr string
 	dialer   net.Dialer
 	quitChan chan struct{}
@@ -25,9 +24,8 @@ type Client struct {
 /*
 Constructor for our client
 */
-func NewClient(name, dialAddr string) *Client {
+func NewClient(dialAddr string) *Client {
 	return &Client{
-		name:     name,
 		dialAddr: dialAddr,
 		quitChan: make(chan struct{}),
 		msgChan:  make(chan Message, 10),
@@ -57,15 +55,25 @@ This loop maintains the communication between target and self
 */
 func (c *Client) connectionLoop(conn net.Conn) {
 	for {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print(">> ")
-		text, _ := reader.ReadString('\n')
-		conn.Write([]byte(text))
+		c.sendMessage(conn)
+		go c.readMessage(conn)
 	}
+}
+
+func (c *Client) sendMessage(conn net.Conn) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(">> ")
+	text, _ := reader.ReadString('\n')
+	conn.Write([]byte(text))
+}
+
+func (c *Client) readMessage(conn net.Conn) {
+	msg, _ := bufio.NewReader(conn).ReadString('\n')
+	fmt.Printf("\n->: %s\n>> ", msg)
 }
 
 func main() {
 	fmt.Println("Go Client!")
-	client := NewClient("TheBoys", ":3000")
+	client := NewClient(":3000")
 	log.Fatal(client.Start())
 }
