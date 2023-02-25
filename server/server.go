@@ -6,32 +6,29 @@ import (
 	"net"
 )
 
-/**
-This will maintain
+/*
+This will maintain contain info about each message
 */
 type Message struct {
 	sender  string
 	payload []byte
 }
 
-/**
+/*
 Server Struct
-ln : the listener for the server
-quitChan: the channel we use to kill the server (empty struct uses no memory)
-
-
-// we can create a map of connections to save info about the user
+This will represent a "chat room" for now
 */
 type Server struct {
-	listenerAddr string
-	ln           net.Listener
-	quitChan     chan struct{}
-	msgChan      chan Message
+	listenerAddr string        //this is the address we would like to spin up the server on
+	ln           net.Listener  // the listener for the server
+	quitChan     chan struct{} // the channel we use to kill the server (empty struct uses no memory)
+	msgChan      chan Message  // we will send messages through this channel
 }
 
-/**
-We need to buffer the msgChan because if don't then that can introduce errors if
-no one is actively listening to this channel
+/*
+Constructor for the server
+We need to buffer the msgChan because if we don't then that can
+introduce errors if no one is actively listening to this channel
 */
 func NewServer(listenAddr string) *Server {
 	return &Server{
@@ -41,7 +38,7 @@ func NewServer(listenAddr string) *Server {
 	}
 }
 
-// Start up our TCP server and wait for connections
+// Function to start up our TCP server and wait for connections
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.listenerAddr)
 	if err != nil {
@@ -69,22 +66,25 @@ func (s *Server) acceptLoop() {
 			continue
 		}
 
-		fmt.Printf("Server accepted new connection: %s\n", conn.RemoteAddr())
+		fmt.Printf("New connection joined the server: %s\n", conn.RemoteAddr())
 		// start a goroutine to avoid blocking incomming connections
 		go s.readLoop(conn)
 	}
 }
 
-// Every time we get a new connection, we need to spin up another loop
-// so that we can read and write
+/*
+Every time we get a new connection, we need to spin up another loop
+so that we can read and write. This will prevent blocking others
+*/
 func (s *Server) readLoop(conn net.Conn) {
 	buff := make([]byte, 2048)
+read:
 	for {
 		n, err := conn.Read(buff)
 		if err != nil {
-			fmt.Printf("Read Error: %s\n", err)
-			// we could check for EOF here...
-			continue
+			fmt.Printf("-Error-: %s\n", err)
+			// close the connection if we have an error
+			break read
 		}
 
 		// send the message to the msgChan
@@ -93,7 +93,6 @@ func (s *Server) readLoop(conn net.Conn) {
 			payload: buff[:n],
 		}
 
-		conn.Write([]byte("message sent!"))
 	}
 }
 
